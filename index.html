@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReasonTrace Live Lab</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Header ──────────────────────────────────────────────────────────── -->
+  <header id="header">
+    <div class="logo">
+      <span>⬡</span> ReasonTrace <span style="color:#7c87a0;font-weight:400">Live Lab</span>
+    </div>
+    <span class="tagline">Reasoning drift detection · JS simulation</span>
+    <div class="spacer"></div>
+
+    <div id="confidence-badge" class="confidence-badge">
+      <span class="dot"></span>
+      <span id="confidence-label">Baseline: initializing</span>
+    </div>
+
+    <span id="session-count">0 sessions</span>
+    <button id="btn-reset">Reset</button>
+  </header>
+
+  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+  <aside id="sidebar">
+
+    <!-- Scenarios -->
+    <div class="section">
+      <div class="section-title">Scenarios</div>
+      <div id="scenario-buttons"><!-- injected by app.js --></div>
+
+      <div id="scenario-progress">
+        <div class="progress-label">
+          <span id="progress-label-text">Running…</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Manual add -->
+    <div class="section">
+      <div class="section-title">Add Single Session</div>
+      <div class="add-row">
+        <select id="session-type">
+          <option value="normal">Normal (baseline)</option>
+          <option value="tool-drift">Tool Pattern Drift</option>
+          <option value="semantic-drift">Semantic Drift</option>
+          <option value="complexity-drift">Complexity Drift</option>
+          <option value="full-drift">Full Drift</option>
+        </select>
+        <button class="btn-add" id="btn-add">Add</button>
+      </div>
+    </div>
+
+    <!-- Session log -->
+    <div class="section-title" style="padding:10px 16px 4px;color:var(--muted);font-size:10px;font-weight:600;letter-spacing:0.8px;text-transform:uppercase">
+      Session Log
+    </div>
+    <div id="session-log">
+      <div class="log-empty">No sessions yet.<br>Run a scenario or add sessions manually.</div>
+    </div>
+
+  </aside>
+
+  <!-- ── Main ────────────────────────────────────────────────────────────── -->
+  <main id="main">
+
+    <!-- Chart -->
+    <div id="chart-area">
+      <div class="chart-header">
+        <span class="chart-title">Drift Score Timeline</span>
+        <div class="legend">
+          <div class="legend-item">
+            <div class="legend-line" style="background:#6366f1;height:2.5px"></div>
+            <span>Composite</span>
+          </div>
+          <div class="legend-item" style="color:#06b6d4">
+            <div class="legend-line dashed" style="color:#06b6d4"></div>
+            <span>Tool</span>
+          </div>
+          <div class="legend-item" style="color:#a78bfa">
+            <div class="legend-line dashed" style="color:#a78bfa"></div>
+            <span>Semantic</span>
+          </div>
+          <div class="legend-item" style="color:#f472b6">
+            <div class="legend-line dashed" style="color:#f472b6"></div>
+            <span>Complexity</span>
+          </div>
+        </div>
+
+        <!-- Severity band legend -->
+        <div style="margin-left:auto;display:flex;gap:10px;align-items:center">
+          <div class="legend-item"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;display:inline-block"></span><span style="color:#22c55e;font-size:10px">none &lt;0.3</span></div>
+          <div class="legend-item"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;display:inline-block"></span><span style="color:#f59e0b;font-size:10px">warning 0.3–0.6</span></div>
+          <div class="legend-item"><span style="width:8px;height:8px;border-radius:50%;background:#f97316;display:inline-block"></span><span style="color:#f97316;font-size:10px">alert 0.6–0.8</span></div>
+          <div class="legend-item"><span style="width:8px;height:8px;border-radius:50%;background:#ef4444;display:inline-block"></span><span style="color:#ef4444;font-size:10px">critical &gt;0.8</span></div>
+        </div>
+      </div>
+
+      <div id="drift-chart-container">
+        <canvas id="drift-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Session detail -->
+    <div id="detail-area">
+
+      <div id="detail-empty">
+        <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#2e3450" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+        </svg>
+        Click a session in the log or on the chart to inspect it
+      </div>
+
+      <div id="detail-content" style="display:none">
+
+        <!-- Context strip: task + normal behavior -->
+        <div id="context-strip"></div>
+
+        <div class="detail-grid">
+
+          <!-- Drift scores -->
+          <div class="drift-card" id="drift-scores-panel"></div>
+
+          <!-- Session content -->
+          <div class="content-card">
+            <div class="content-tabs" id="content-tabs">
+              <button class="tab-btn active" data-tab="reasoning">Reasoning</button>
+              <button class="tab-btn" data-tab="tools">Tools</button>
+              <button class="tab-btn" data-tab="decisions">Decisions</button>
+            </div>
+            <div class="tab-pane active" id="tab-reasoning"></div>
+            <div class="tab-pane" id="tab-tools"></div>
+            <div class="tab-pane" id="tab-decisions"></div>
+          </div>
+
+          <!-- What drifted explanation — full width below the grid -->
+          <div id="explain-box" style="grid-column:1/-1"></div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+</div>
+
+<script src="reasontrace-core.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
