@@ -1,0 +1,3 @@
+[console_scripts]
+reasontrace-install = reasontrace.installer:install
+reasontrace-server = reasontrace.server:run
